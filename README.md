@@ -6,7 +6,7 @@ A secure, scalable blockchain-based e-voting prototype for India's 970M+ voters.
 
 ## 🔗 Live Demo
 **https://mrvikas06.github.io/Vote-chain/**
-_(Replace YOUR_USERNAME with your GitHub username after deploying)_
+
 
 ## 🧪 Demo Credentials
 | Aadhaar | Voter |
