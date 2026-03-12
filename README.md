@@ -1,16 +1,30 @@
-# React + Vite
+# 🗳️ VoteChain — Blockchain E-Voting System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> India Innovates 2026 · Team BrainBit by vikas kumar singh
 
-Currently, two official plugins are available:
+A secure, scalable blockchain-based e-voting prototype for India's 970M+ voters.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🔗 Live Demo
+**https://mrvikas06.github.io/Vote-chain/**
+_(Replace YOUR_USERNAME with your GitHub username after deploying)_
 
-## React Compiler
+## 🧪 Demo Credentials
+| Aadhaar | Voter |
+|---|---|
+| `123456789012` | Rahul Verma, New Delhi Central |
+| `987654321098` | Sunita Patel, Mumbai South |
+| `456789012345` | Arjun Singh, Bengaluru Urban |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 Run Locally
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## ✨ Features
+- Aadhaar + OTP + DeepFace 2-factor auth
+- Hyperledger Fabric blockchain vote ledger (simulated)
+- zk-SNARKs voter anonymity + verifiability
+- Cryptographic vote receipts
+- Live results via smart contract auto-tallying
+- Public audit portal
