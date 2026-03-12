@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VoteChain — Blockchain E-Voting | India Innovates 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{min-height:100%;background:#03070f}
+:root{
+  --bg:#03070f;--bg1:#060d1a;--bg2:#0a1525;--bg3:#0f1e33;
+  --border:#1a2d45;--border2:#243d57;
+  --text:#e8f0f8;--text2:#8ba8c4;--text3:#4a6a88;
+  --accent:#0ea5e9;--green:#10b981;--red:#ef4444;
+  --font:'Syne',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scanline{0%{top:-20%}100%{top:110%}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pop{0%{transform:scale(0.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes chainAdd{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px}
+.card-inner{background:var(--bg1);border:1px solid var(--border);border-radius:10px}
+.btn-primary{background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff;border:none;border-radius:10px;cursor:pointer;font-family:var(--font);font-weight:700;letter-spacing:.5px;transition:all .2s}
+.btn-primary:hover:not(:disabled){filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 6px 20px rgba(14,165,233,.3)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:10px;cursor:pointer;font-family:var(--font);transition:all .2s}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+input,textarea{background:var(--bg1);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--mono);outline:none;transition:border .2s}
+input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(14,165,233,.1)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg1)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-family:var(--mono)}
+.status-dot{width:6px;height:6px;border-radius:50%;animation:blink 1.5s infinite}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+const VOTERS_DB={
+  "123456789012":{name:"Rahul Verma",age:35,gender:"Male",constituency:"New Delhi Central – 01",state:"Delhi",registeredPhone:"+91 98765 *****0",voterID:"DL/04/123/456789",photo:"👨"},
+  "987654321098":{name:"Sunita Patel",age:40,gender:"Female",constituency:"Mumbai South – 07",state:"Maharashtra",registeredPhone:"+91 91234 *****2",voterID:"MH/22/098/765432",photo:"👩"},
+  "456789012345":{name:"Arjun Singh",age:28,gender:"Male",constituency:"Bengaluru Urban – 12",state:"Karnataka",registeredPhone:"+91 87654 *****8",voterID:"KA/08/045/678901",photo:"🧑"},
+};
+const CANDIDATES=[
+  {id:"A",name:"Priya Sharma",party:"Progressive Alliance",abbr:"PA",symbol:"🌿",color:"#10b981",votes:142830,manifesto:"Clean energy, digital infrastructure, farmer welfare"},
+  {id:"B",name:"Rajesh Kumar",party:"National Unity Front",abbr:"NUF",symbol:"⚡",color:"#f59e0b",votes:138410,manifesto:"Economic growth, defence, urban development"},
+  {id:"C",name:"Anita Desai",party:"Peoples Democratic Party",abbr:"PDP",symbol:"🌊",color:"#3b82f6",votes:97650,manifesto:"Education reform, healthcare access, women safety"},
+  {id:"D",name:"Vikram Nair",party:"Aam Janta Party",abbr:"AJP",symbol:"🔆",color:"#a78bfa",votes:61200,manifesto:"Anti-corruption, transparency, youth employment"},
+  {id:"E",name:"NOTA",party:"None of the Above",abbr:"—",symbol:"✗",color:"#6b7280",votes:8900,manifesto:""},
+];
+const BLOCKCHAIN_LOG=[
+  {block:"#BLK-449821",hash:"0x3f9a...c142",tx:1204,time:"2 min ago",status:"CONFIRMED"},
+  {block:"#BLK-449820",hash:"0x7e2b...09fa",tx:998,time:"4 min ago",status:"CONFIRMED"},
+  {block:"#BLK-449819",hash:"0xb14c...3e77",tx:1101,time:"6 min ago",status:"CONFIRMED"},
+  {block:"#BLK-449818",hash:"0x5da0...7f23",tx:876,time:"8 min ago",status:"CONFIRMED"},
+];
+const genHash=()=>"0x"+Array.from({length:64},()=>Math.floor(Math.random()*16).toString(16)).join("");
+const genBlock=()=>"#BLK-"+(449822+Math.floor(Math.random()*10));
+const genOTP=()=>String(Math.floor(100000+Math.random()*900000));
+const fmtNum=n=>n.toLocaleString("en-IN");
+
+function StatusBar({voter}){
+  const [time,setTime]=useState(new Date());
+  useEffect(()=>{const t=setInterval(()=>setTime(new Date()),1000);return()=>clearInterval(t);},[]);
+  return(
+    <div style={{position:"fixed",top:0,left:0,right:0,zIndex:100,height:52,background:"rgba(3,7,15,0.95)",backdropFilter:"blur(16px)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 20px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <span style={{fontFamily:"var(--font)",fontWeight:800,fontSize:18,background:"linear-gradient(90deg,#0ea5e9,#06b6d4)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>VoteChain</span>
+        <span className="tag" style={{background:"#0c2a0c",border:"1px solid #14532d",color:"#4ade80"}}><span className="status-dot" style={{background:"#4ade80"}}/>LIVE</span>
+        <span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",display:"none"}}>Hyperledger Fabric v2.5</span>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        {voter&&<span style={{fontSize:12,color:"var(--text2)",fontFamily:"var(--mono)"}}>👤 {voter.name.split(" ")[0]}</span>}
+        <span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{time.toLocaleTimeString("en-IN")}</span>
+        <span className="tag" style={{background:"var(--bg3)",border:"1px solid var(--border2)",color:"var(--text2)"}}>🔒 TLS 1.3</span>
+      </div>
+    </div>
+  );
+}
+
+function ProgressStepper({steps,current}){
+  return(
+    <div style={{display:"flex",alignItems:"center",marginBottom:28}}>
+      {steps.map((s,i)=>(
+        <div key={s} style={{display:"flex",alignItems:"center",flex:i<steps.length-1?1:"auto"}}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,minWidth:72}}>
+            <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,transition:"all 0.3s",
+              background:i<current?"var(--green)":i===current?"var(--accent)":"var(--bg3)",
+              border:`2px solid ${i<current?"var(--green)":i===current?"var(--accent)":"var(--border2)"}`,
+              color:i<=current?"#fff":"var(--text3)",
+              boxShadow:i===current?"0 0 16px rgba(14,165,233,0.4)":"none"
+            }}>{i<current?"✓":i+1}</div>
+            <span style={{fontSize:10,color:i===current?"var(--accent)":i<current?"var(--green)":"var(--text3)",fontFamily:"var(--font)",fontWeight:600,whiteSpace:"nowrap"}}>{s}</span>
+          </div>
+          {i<steps.length-1&&<div style={{flex:1,height:2,background:i<current?"var(--green)":"var(--border)",margin:"0 4px",marginBottom:20,transition:"background 0.3s"}}/>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TerminalLine({text,color="var(--text2)"}){
+  return(
+    <div style={{animation:"fadeUp 0.3s ease both",fontFamily:"var(--mono)",fontSize:12,color,padding:"2px 0",display:"flex",alignItems:"center",gap:8}}>
+      <span style={{color:"var(--text3)"}}>›</span>{text}
+    </div>
+  );
+}
+
+function LandingScreen({onNavigate}){
+  const total=CANDIDATES.reduce((a,c)=>a+c.votes,0);
+  return(
+    <div style={{minHeight:"100vh",paddingTop:52,background:"var(--bg)",position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(rgba(14,165,233,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(14,165,233,0.04) 1px,transparent 1px)",backgroundSize:"40px 40px"}}/>
+      <div style={{position:"relative",zIndex:1,maxWidth:960,margin:"0 auto",padding:"48px 20px"}}>
+        <div style={{textAlign:"center",marginBottom:48,animation:"fadeUp 0.6s ease both"}}>
+          <div className="tag" style={{background:"#0c2031",border:"1px solid var(--border2)",color:"var(--accent)",marginBottom:20,fontSize:12}}>🇮🇳 India General Election 2026 · Constituency Voting Portal</div>
+          <h1 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:"clamp(38px,7vw,76px)",lineHeight:1.05,letterSpacing:-2,marginBottom:16,color:"var(--text)"}}>
+            Secure. Transparent.<br/>
+            <span style={{background:"linear-gradient(90deg,#0ea5e9,#06b6d4,#10b981)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Democratic.</span>
+          </h1>
+          <p style={{fontSize:15,color:"var(--text2)",maxWidth:500,margin:"0 auto 32px",lineHeight:1.8}}>Blockchain-secured e-voting powered by Hyperledger Fabric. Every vote is immutable, anonymous via zk-SNARKs, and publicly verifiable.</p>
+          <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
+            <button className="btn-primary" onClick={()=>onNavigate("auth")} style={{padding:"14px 32px",fontSize:15}}>🗳️ Cast Your Vote</button>
+            <button className="btn-ghost" onClick={()=>onNavigate("audit")} style={{padding:"14px 22px",fontSize:15}}>🔍 Verify Receipt</button>
+            <button className="btn-ghost" onClick={()=>onNavigate("results")} style={{padding:"14px 22px",fontSize:15}}>📊 Live Results</button>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:36}}>
+          {[{label:"Eligible Voters",value:"97.2 Cr",icon:"👥",color:"#0ea5e9"},{label:"Votes Cast",value:fmtNum(total),icon:"🗳️",color:"#10b981"},{label:"Blocks Confirmed",value:"4,49,821",icon:"⛓️",color:"#a78bfa"},{label:"Turnout",value:"43.6%",icon:"📈",color:"#f59e0b"}].map(s=>(
+            <div key={s.label} className="card" style={{padding:"16px 18px"}}>
+              <div style={{fontSize:20,marginBottom:6}}>{s.icon}</div>
+              <div style={{fontFamily:"var(--font)",fontWeight:800,fontSize:20,color:s.color,marginBottom:2}}>{s.value}</div>
+              <div style={{fontSize:11,color:"var(--text3)"}}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="card" style={{padding:0,overflow:"hidden"}}>
+          <div style={{padding:"12px 18px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
+            <span className="status-dot" style={{background:"#4ade80"}}/>
+            <span style={{fontFamily:"var(--font)",fontWeight:700,fontSize:14,color:"var(--text)"}}>Live Blockchain Feed</span>
+            <span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>Hyperledger Fabric · Raft Consensus</span>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontFamily:"var(--mono)",fontSize:12}}>
+              <thead><tr style={{borderBottom:"1px solid var(--border)"}}>
+                {["Block","Hash","Transactions","Time","Status"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",color:"var(--text3)",fontWeight:500}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {BLOCKCHAIN_LOG.map((b,i)=>(
+                  <tr key={b.block} style={{borderBottom:"1px solid var(--border)",animation:`chainAdd 0.4s ${i*0.1}s ease both`}}>
+                    <td style={{padding:"11px 14px",color:"var(--accent)",fontWeight:700}}>{b.block}</td>
+                    <td style={{padding:"11px 14px",color:"var(--text2)"}}>{b.hash}</td>
+                    <td style={{padding:"11px 14px",color:"var(--text)"}}>{fmtNum(b.tx)}</td>
+                    <td style={{padding:"11px 14px",color:"var(--text3)"}}>{b.time}</td>
+                    <td style={{padding:"11px 14px"}}><span className="tag" style={{background:"#0c2a0c",border:"1px solid #14532d",color:"#4ade80"}}>✓ {b.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p style={{textAlign:"center",marginTop:16,fontSize:12,color:"var(--text3)",fontFamily:"var(--mono)"}}>Demo: 123456789012 · 987654321098 · 456789012345</p>
+      </div>
+    </div>
+  );
+}
+
+function AuthScreen({onSuccess}){
+  const [step,setStep]=useState(0);
+  const [aadhaar,setAadhaar]=useState("");
+  const [otpCode,setOtpCode]=useState("");
+  const [otpDigits,setOtpDigits]=useState(["","","","","",""]);
+  const [error,setError]=useState("");
+  const [faceProgress,setFaceProgress]=useState(0);
+  const [faceDone,setFaceDone]=useState(false);
+  const [termLines,setTermLines]=useState([]);
+  const inputRefs=useRef([]);
+  const voter=VOTERS_DB[aadhaar];
+  const addTerm=(txt,color="var(--text2)",delay=0)=>setTimeout(()=>setTermLines(l=>[...l,{txt,color,id:Date.now()+Math.random()}]),delay);
+
+  const handleAadhaar=()=>{
+    if(!voter){setError("Aadhaar not found. Try: 123456789012");return;}
+    setError("");const code=genOTP();setOtpCode(code);setTermLines([]);
+    addTerm("› Connecting to UIDAI server…",undefined,0);
+    addTerm("› Aadhaar validated ✓","#4ade80",400);
+    addTerm(`› OTP dispatched to ${voter.registeredPhone}`,"#0ea5e9",800);
+    addTerm("› Session token generated (SHA-256)","var(--text2)",1200);
+    setTimeout(()=>setStep(1),1500);
+  };
+  const handleOtpInput=(val,idx)=>{
+    const d=[...otpDigits];d[idx]=val.replace(/\D/,"").slice(-1);setOtpDigits(d);setError("");
+    if(val&&idx<5)inputRefs.current[idx+1]?.focus();
+  };
+  const handleOtpKey=(e,idx)=>{if(e.key==="Backspace"&&!otpDigits[idx]&&idx>0)inputRefs.current[idx-1]?.focus();};
+  const handleOtpPaste=(e)=>{
+    const p=e.clipboardData.getData("text").replace(/\D/g,"").slice(0,6);
+    if(p.length===6){setOtpDigits(p.split(""));inputRefs.current[5]?.focus();}
+    e.preventDefault();
+  };
+  const handleOtpVerify=()=>{
+    const entered=otpDigits.join("");
+    if(entered!==otpCode){setError(`Invalid OTP. Hint: ${otpCode}`);return;}
+    setError("");setTermLines([]);
+    addTerm("› OTP verified ✓","#4ade80",0);
+    addTerm("› Initiating DeepFace biometric scan…",undefined,400);
+    setTimeout(()=>{setStep(2);startFace();},700);
+  };
+  const startFace=()=>{
+    let p=0;
+    const msgs=["Detecting face landmarks…","Cross-checking Aadhaar biometric DB…","Anti-spoofing liveness check…","Identity confirmed ✓"];
+    msgs.forEach((m,i)=>addTerm("› "+m,i===3?"#4ade80":"var(--text2)",i*700));
+    const iv=setInterval(()=>{p+=Math.random()*6+3;setFaceProgress(Math.min(p,100));if(p>=100){clearInterval(iv);setFaceDone(true);setTimeout(()=>onSuccess(voter),700);}},100);
+  };
+
+  return(
+    <div style={{minHeight:"100vh",paddingTop:52,display:"flex",alignItems:"center",justifyContent:"center",padding:"72px 20px 24px",background:"var(--bg)"}}>
+      <div style={{width:"100%",maxWidth:500}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <h2 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:26,color:"var(--text)",marginBottom:6}}>Voter Authentication</h2>
+          <p style={{color:"var(--text3)",fontSize:13}}>2-Factor · Aadhaar + OTP + DeepFace Biometric</p>
+        </div>
+        <ProgressStepper steps={["Aadhaar","OTP","Biometric"]} current={step}/>
+        {step===0&&(
+          <div className="card" style={{padding:24,animation:"fadeUp 0.4s ease both"}}>
+            <label style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",display:"block",marginBottom:8,letterSpacing:1}}>AADHAAR NUMBER</label>
+            <div style={{position:"relative",marginBottom:8}}>
+              <input value={aadhaar.replace(/(\d{4})(?=\d)/g,"$1 ")} onChange={e=>setAadhaar(e.target.value.replace(/\s|\D/g,"").slice(0,12))}
+                placeholder="XXXX XXXX XXXX" style={{width:"100%",padding:"14px 16px",fontSize:18,letterSpacing:4}}/>
+              {aadhaar.length===12&&voter&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",color:"#4ade80",fontSize:18}}>✓</span>}
+            </div>
+            {error&&<p style={{color:"var(--red)",fontSize:12,marginBottom:8,fontFamily:"var(--mono)"}}>{error}</p>}
+            {aadhaar.length===12&&voter&&(
+              <div className="card-inner" style={{padding:"12px 14px",marginBottom:12,display:"flex",gap:12,alignItems:"center",animation:"fadeUp 0.3s ease"}}>
+                <span style={{fontSize:26}}>{voter.photo}</span>
+                <div><p style={{fontFamily:"var(--font)",fontWeight:700,color:"var(--text)",fontSize:14}}>{voter.name}</p><p style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{voter.constituency}</p></div>
+                <span className="tag" style={{background:"#0c2a0c",border:"1px solid #14532d",color:"#4ade80",marginLeft:"auto"}}>Found</span>
+              </div>
+            )}
+            <button className="btn-primary" style={{width:"100%",padding:13,fontSize:14}} disabled={aadhaar.length!==12||!voter} onClick={handleAadhaar}>VERIFY & SEND OTP →</button>
+            {termLines.length>0&&<div className="card-inner" style={{padding:"12px 14px",marginTop:12}}>{termLines.map(l=><TerminalLine key={l.id} text={l.txt} color={l.color}/>)}</div>}
+          </div>
+        )}
+        {step===1&&(
+          <div className="card" style={{padding:24,animation:"fadeUp 0.4s ease both"}}>
+            <div className="card-inner" style={{padding:"10px 14px",marginBottom:18,display:"flex",gap:8,alignItems:"center"}}>
+              <span>📱</span><span style={{fontSize:13,color:"var(--text2)"}}>OTP sent to <strong style={{color:"var(--accent)"}}>{voter?.registeredPhone}</strong></span>
+            </div>
+            <label style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",display:"block",marginBottom:10,letterSpacing:1}}>ENTER 6-DIGIT OTP</label>
+            <div style={{display:"flex",gap:8,marginBottom:8}} onPaste={handleOtpPaste}>
+              {otpDigits.map((d,i)=>(
+                <input key={i} ref={el=>inputRefs.current[i]=el} value={d}
+                  onChange={e=>handleOtpInput(e.target.value,i)} onKeyDown={e=>handleOtpKey(e,i)}
+                  style={{flex:1,padding:"13px 0",textAlign:"center",fontSize:20,fontWeight:700,borderRadius:10,border:`2px solid ${d?"var(--accent)":"var(--border)"}`,background:"var(--bg1)",color:"var(--text)"}} maxLength={1}/>
+              ))}
+            </div>
+            <p style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:10}}>
+              💡 Demo OTP: <span style={{color:"var(--accent)",cursor:"pointer",textDecoration:"underline"}} onClick={()=>setOtpDigits(otpCode.split(""))}>{otpCode} (click to fill)</span>
+            </p>
+            {error&&<p style={{color:"var(--red)",fontSize:12,marginBottom:8,fontFamily:"var(--mono)"}}>{error}</p>}
+            <button className="btn-primary" style={{width:"100%",padding:13,fontSize:14}} disabled={otpDigits.join("").length!==6} onClick={handleOtpVerify}>VERIFY OTP →</button>
+            <button className="btn-ghost" style={{width:"100%",padding:12,fontSize:13,marginTop:8}} onClick={()=>{setStep(0);setOtpDigits(["","","","","",""]);setTermLines([]);}}>← Back</button>
+            {termLines.length>0&&<div className="card-inner" style={{padding:"12px 14px",marginTop:12}}>{termLines.map(l=><TerminalLine key={l.id} text={l.txt} color={l.color}/>)}</div>}
+          </div>
+        )}
+        {step===2&&(
+          <div className="card" style={{padding:24,textAlign:"center",animation:"fadeUp 0.4s ease both"}}>
+            <div style={{position:"relative",width:130,height:130,margin:"0 auto 16px",borderRadius:"50%",background:"var(--bg3)",border:`3px solid ${faceDone?"var(--green)":"var(--accent)"}`,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={{fontSize:58}}>{voter?.photo}</span>
+              {!faceDone&&<div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"var(--accent)",animation:"scanline 1.5s linear infinite"}}/>}
+              {faceDone&&<div style={{position:"absolute",inset:0,background:"rgba(16,185,129,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>✓</div>}
+            </div>
+            <p style={{fontFamily:"var(--font)",fontWeight:700,fontSize:15,color:faceDone?"var(--green)":"var(--accent)",marginBottom:8}}>{faceDone?"Identity Verified ✓":"Scanning Biometrics…"}</p>
+            <div style={{background:"var(--bg3)",borderRadius:8,height:6,overflow:"hidden",marginBottom:8}}>
+              <div style={{height:"100%",width:`${faceProgress}%`,background:"linear-gradient(90deg,var(--accent),var(--green))",transition:"width 0.15s"}}/>
+            </div>
+            <p style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:12}}>{Math.round(faceProgress)}% complete</p>
+            <div className="card-inner" style={{padding:"12px 14px",textAlign:"left"}}>{termLines.map(l=><TerminalLine key={l.id} text={l.txt} color={l.color}/>)}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VoteScreen({voter,onVoted}){
+  const [selected,setSelected]=useState(null);
+  const [expanded,setExpanded]=useState(null);
+  const [stage,setStage]=useState("pick");
+  const [encProgress,setEncProgress]=useState(0);
+  const [encLines,setEncLines]=useState([]);
+
+  const handleSubmit=()=>{
+    setStage("encrypting");
+    const steps=[
+      ["Encrypting ballot with AES-256-GCM…","var(--text2)",0],
+      ["Signing payload with RSA-2048…","var(--text2)",700],
+      ["Establishing TLS 1.3 handshake…","var(--text2)",1400],
+      ["Broadcasting to Hyperledger peer nodes…","var(--text2)",2100],
+      ["Generating zk-SNARK anonymity proof…","#a78bfa",2800],
+      ["Endorsing via Raft consensus…","var(--text2)",3500],
+      ["Block confirmed on ledger ✓","#4ade80",4200],
+    ];
+    steps.forEach(([txt,color,delay],i)=>setTimeout(()=>{
+      setEncLines(l=>[...l,{txt,color,id:Date.now()+i}]);
+      setEncProgress(Math.round((i+1)/steps.length*100));
+    },delay));
+    setTimeout(()=>onVoted(selected,genHash(),genBlock()),5000);
+  };
+
+  if(stage==="encrypting")return(
+    <div style={{minHeight:"100vh",paddingTop:52,display:"flex",alignItems:"center",justifyContent:"center",padding:"72px 20px 24px",background:"var(--bg)"}}>
+      <div style={{maxWidth:460,width:"100%",textAlign:"center"}}>
+        <div style={{fontSize:42,marginBottom:14,animation:"spin 2s linear infinite",display:"inline-block"}}>⛓️</div>
+        <h3 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:21,color:"var(--text)",marginBottom:6}}>Recording on Blockchain</h3>
+        <p style={{color:"var(--text3)",fontSize:13,marginBottom:20}}>Do not close this window</p>
+        <div style={{background:"var(--bg3)",borderRadius:8,height:8,overflow:"hidden",marginBottom:6}}>
+          <div style={{height:"100%",width:`${encProgress}%`,background:"linear-gradient(90deg,#0369a1,#0ea5e9,#10b981)",transition:"width 0.6s ease",borderRadius:8}}/>
+        </div>
+        <p style={{fontSize:12,color:"var(--accent)",fontFamily:"var(--mono)",marginBottom:18}}>{encProgress}%</p>
+        <div className="card" style={{padding:"14px 18px",textAlign:"left"}}>{encLines.map(l=><TerminalLine key={l.id} text={l.txt} color={l.color}/>)}</div>
+      </div>
+    </div>
+  );
+
+  if(stage==="confirm")return(
+    <div style={{minHeight:"100vh",paddingTop:52,display:"flex",alignItems:"center",justifyContent:"center",padding:"72px 20px 24px",background:"var(--bg)"}}>
+      <div style={{maxWidth:420,width:"100%"}}>
+        <div className="card" style={{padding:26,textAlign:"center"}}>
+          <p style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",letterSpacing:1,marginBottom:14}}>CONFIRM YOUR VOTE</p>
+          <div style={{fontSize:48,marginBottom:10}}>{selected.symbol}</div>
+          <h3 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:21,color:"var(--text)",marginBottom:4}}>{selected.name}</h3>
+          <p style={{color:selected.color,fontSize:14,marginBottom:4}}>{selected.party}</p>
+          <span className="tag" style={{background:"var(--bg3)",border:"1px solid var(--border2)",color:"var(--text2)",marginBottom:18,display:"inline-flex"}}>{voter.constituency}</span>
+          <div className="card-inner" style={{padding:"10px 14px",marginBottom:18}}><p style={{fontSize:12,color:"var(--red)",fontFamily:"var(--mono)"}}>⚠ Irreversible once submitted to blockchain</p></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <button className="btn-ghost" style={{padding:12,fontSize:14}} onClick={()=>setStage("pick")}>← Change</button>
+            <button className="btn-primary" style={{padding:12,fontSize:14,background:"linear-gradient(135deg,#065f46,#10b981)"}} onClick={handleSubmit}>✓ Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{minHeight:"100vh",paddingTop:52,background:"var(--bg)"}}>
+      <div style={{maxWidth:640,margin:"0 auto",padding:"28px 20px"}}>
+        <div className="card" style={{padding:"14px 18px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:24}}>{voter.photo}</span>
+            <div><p style={{fontFamily:"var(--font)",fontWeight:700,fontSize:14,color:"var(--text)"}}>{voter.name}</p><p style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{voter.voterID}</p></div>
+          </div>
+          <div style={{textAlign:"right"}}><p style={{fontSize:12,color:"var(--text2)"}}>{voter.constituency}</p><p style={{fontSize:11,color:"var(--text3)"}}>General Election 2026</p></div>
+        </div>
+        <h2 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:21,color:"var(--text)",marginBottom:4}}>Select Your Candidate</h2>
+        <p style={{fontSize:13,color:"var(--text3)",marginBottom:18}}>Tap to expand · Your choice is encrypted end-to-end</p>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+          {CANDIDATES.map(c=>{
+            const isSel=selected?.id===c.id,isExp=expanded===c.id;
+            return(
+              <div key={c.id} onClick={()=>{setSelected(c);setExpanded(isExp?null:c.id);}}
+                style={{borderRadius:14,border:`2px solid ${isSel?c.color:"var(--border)"}`,background:isSel?`${c.color}12`:"var(--bg2)",
+                  cursor:"pointer",transition:"all 0.2s",transform:isSel?"scale(1.01)":"scale(1)",
+                  boxShadow:isSel?`0 4px 20px ${c.color}30`:"none",overflow:"hidden"}}>
+                <div style={{padding:"15px 18px",display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{width:42,height:42,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,background:isSel?`${c.color}20`:"var(--bg3)",flexShrink:0}}>{c.symbol}</div>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+                      <span style={{fontFamily:"var(--font)",fontWeight:700,fontSize:15,color:"var(--text)"}}>{c.name}</span>
+                      <span className="tag" style={{background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:10}}>{c.abbr}</span>
+                    </div>
+                    <p style={{fontSize:12,color:c.color}}>{c.party}</p>
+                  </div>
+                  <div style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${isSel?c.color:"var(--border2)"}`,display:"flex",alignItems:"center",justifyContent:"center",background:isSel?c.color:"transparent",flexShrink:0}}>
+                    {isSel&&<div style={{width:7,height:7,borderRadius:"50%",background:"white"}}/>}
+                  </div>
+                </div>
+                {isExp&&c.manifesto&&(
+                  <div style={{padding:"0 18px 14px",borderTop:"1px solid var(--border)",paddingTop:12,animation:"fadeUp 0.2s ease"}}>
+                    <p style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:6,letterSpacing:1}}>MANIFESTO</p>
+                    <p style={{fontSize:13,color:"var(--text2)",lineHeight:1.6}}>{c.manifesto}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <button className="btn-primary" style={{width:"100%",padding:15,fontSize:15}} disabled={!selected} onClick={()=>setStage("confirm")}>
+          {selected?`PROCEED WITH VOTE FOR ${selected.name.toUpperCase()} →`:"SELECT A CANDIDATE TO CONTINUE"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SuccessScreen({voter,hash,blockId,onAudit,onResults,onReset}){
+  const [copied,setCopied]=useState(false);
+  return(
+    <div style={{minHeight:"100vh",paddingTop:52,display:"flex",alignItems:"center",justifyContent:"center",padding:"72px 20px 24px",background:"var(--bg)"}}>
+      <div style={{maxWidth:480,width:"100%"}}>
+        <div style={{textAlign:"center",marginBottom:22,animation:"pop 0.5s ease both"}}>
+          <div style={{fontSize:60,marginBottom:10}}>✅</div>
+          <h2 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:26,color:"var(--green)",marginBottom:4}}>Vote Recorded!</h2>
+          <p style={{color:"var(--text3)",fontSize:14}}>Immutably stored on Hyperledger Fabric blockchain.</p>
+        </div>
+        <div className="card" style={{padding:0,overflow:"hidden",marginBottom:14}}>
+          <div style={{padding:"11px 18px",background:"linear-gradient(90deg,#0c2a0c,#0a1525)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
+            <span>🧾</span><span style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--green)",letterSpacing:2}}>CRYPTOGRAPHIC VOTE RECEIPT</span>
+          </div>
+          <div style={{padding:18,display:"flex",flexDirection:"column",gap:10}}>
+            {[["Voter Name",voter.name],["Voter ID",voter.voterID],["Constituency",voter.constituency],["Block ID",blockId],["Timestamp",new Date().toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"medium"})],["Confirmations","1 (propagating…)"]].map(([k,v])=>(
+              <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:8,borderBottom:"1px solid var(--border)"}}>
+                <span style={{fontSize:12,color:"var(--text3)"}}>{k}</span>
+                <span style={{fontSize:13,color:"var(--text)",fontFamily:k==="Block ID"||k==="Voter ID"?"var(--mono)":"inherit",fontWeight:600}}>{v}</span>
+              </div>
+            ))}
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:12,color:"var(--text3)"}}>Vote Hash (zk-SNARK)</span>
+                <button onClick={()=>{try{navigator.clipboard.writeText(hash);}catch(e){}setCopied(true);setTimeout(()=>setCopied(false),2000);}}
+                  style={{padding:"3px 10px",borderRadius:6,border:"1px solid var(--border2)",background:"transparent",color:copied?"var(--green)":"var(--text3)",cursor:"pointer",fontSize:11,fontFamily:"var(--mono)"}}>
+                  {copied?"✓ Copied":"Copy"}
+                </button>
+              </div>
+              <div style={{padding:"10px 12px",background:"var(--bg1)",borderRadius:8,border:"1px solid var(--border)"}}><p style={{fontFamily:"var(--mono)",fontSize:10,color:"#a78bfa",wordBreak:"break-all",lineHeight:1.6}}>{hash}</p></div>
+              <p style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",marginTop:6,fontStyle:"italic"}}>🎭 Vote choice protected by zk-SNARKs — cannot be revealed even by officials.</p>
+            </div>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+          <button className="btn-ghost" style={{padding:11,fontSize:13}} onClick={onAudit}>🔍 Verify</button>
+          <button className="btn-ghost" style={{padding:11,fontSize:13}} onClick={onResults}>📊 Results</button>
+          <button className="btn-ghost" style={{padding:11,fontSize:13}} onClick={onReset}>← Home</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResultsScreen(){
+  const total=CANDIDATES.reduce((a,c)=>a+c.votes,0);
+  const sorted=[...CANDIDATES].sort((a,b)=>b.votes-a.votes);
+  const [animated,setAnimated]=useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setAnimated(true),200);return()=>clearTimeout(t);},[]);
+  return(
+    <div style={{minHeight:"100vh",paddingTop:52,background:"var(--bg)"}}>
+      <div style={{maxWidth:660,margin:"0 auto",padding:"28px 20px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:22,flexWrap:"wrap",gap:10}}>
+          <div><h2 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:24,color:"var(--text)",marginBottom:2}}>Live Election Results</h2><p style={{fontSize:12,color:"var(--text3)"}}>Auto-tallied by Smart Contracts · No manual counting</p></div>
+          <div className="tag" style={{background:"var(--bg3)",border:"1px solid var(--border2)",color:"var(--text2)"}}><span className="status-dot" style={{background:"#4ade80"}}/>LIVE · {fmtNum(total)} counted</div>
+        </div>
+        <div className="card" style={{padding:0,overflow:"hidden",marginBottom:14,border:`1px solid ${sorted[0].color}40`,boxShadow:`0 0 28px ${sorted[0].color}12`}}>
+          <div style={{padding:"10px 18px",background:`linear-gradient(90deg,${sorted[0].color}18,transparent)`,borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
+            <span>🏆</span><span style={{fontFamily:"var(--mono)",fontSize:11,color:sorted[0].color,letterSpacing:2}}>LEADING CANDIDATE</span>
+          </div>
+          <div style={{padding:18,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+            <span style={{fontSize:44}}>{sorted[0].symbol}</span>
+            <div style={{flex:1}}>
+              <h3 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:20,color:"var(--text)",marginBottom:2}}>{sorted[0].name}</h3>
+              <p style={{color:sorted[0].color,fontSize:13,marginBottom:8}}>{sorted[0].party}</p>
+              <div style={{background:"var(--bg3)",borderRadius:6,height:10,overflow:"hidden"}}>
+                <div style={{height:"100%",width:animated?`${(sorted[0].votes/total*100).toFixed(1)}%`:"0%",background:`linear-gradient(90deg,${sorted[0].color},${sorted[0].color}80)`,transition:"width 1.2s cubic-bezier(0.34,1.56,0.64,1)",borderRadius:6}}/>
+              </div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontFamily:"var(--font)",fontWeight:800,fontSize:26,color:sorted[0].color}}>{(sorted[0].votes/total*100).toFixed(1)}%</div>
+              <div style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--mono)"}}>{fmtNum(sorted[0].votes)}</div>
+            </div>
+          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+          {sorted.map((c,i)=>{const pct=(c.votes/total*100).toFixed(1);return(
+            <div key={c.id} className="card" style={{padding:"14px 18px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <span style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--text3)",width:14}}>#{i+1}</span>
+                <span style={{fontSize:18}}>{c.symbol}</span>
+                <div style={{flex:1}}><span style={{fontFamily:"var(--font)",fontWeight:700,fontSize:14,color:"var(--text)"}}>{c.name}</span><span style={{fontSize:11,color:"var(--text3)",marginLeft:8}}>{c.party}</span></div>
+                <div style={{textAlign:"right"}}><span style={{fontFamily:"var(--font)",fontWeight:700,fontSize:15,color:c.color}}>{pct}%</span><p style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--mono)"}}>{fmtNum(c.votes)}</p></div>
+              </div>
+              <div style={{background:"var(--bg3)",borderRadius:4,height:5,overflow:"hidden"}}>
+                <div style={{height:"100%",width:animated?`${pct}%`:"0%",background:c.color,transition:`width ${1+i*0.1}s cubic-bezier(0.34,1.2,0.64,1)`,borderRadius:4}}/>
+              </div>
+            </div>
+          );})}
+        </div>
+        <div className="card" style={{padding:0,overflow:"hidden"}}>
+          <div style={{padding:"11px 18px",borderBottom:"1px solid var(--border)"}}><span style={{fontFamily:"var(--font)",fontWeight:700,fontSize:14,color:"var(--text)"}}>Smart Contract Audit Log</span></div>
+          <div style={{padding:"12px 16px",fontFamily:"var(--mono)",fontSize:11,display:"flex",flexDirection:"column",gap:5}}>
+            {["TallyContract.autoTally() executed at block #449822","Chaincode verified 449,990 valid transactions","zk-SNARK proofs validated: 449,990 / 449,990","Result hash: 0x8f3c...e1a4 committed to ledger","Public verifier portal updated — 0 disputes"].map((l,i)=>(
+              <div key={l} style={{color:i===4?"#4ade80":"var(--text2)",display:"flex",gap:8}}><span style={{color:"var(--text3)"}}>›</span>{l}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuditScreen({defaultHash}){
+  const [hash,setHash]=useState(defaultHash||"");
+  const [loading,setLoading]=useState(false);
+  const [result,setResult]=useState(null);
+  const [lines,setLines]=useState([]);
+  const verify=()=>{
+    if(!hash.startsWith("0x")||hash.length<10){setResult({valid:false});return;}
+    setLoading(true);setResult(null);setLines([]);
+    const steps=[["Connecting to Hyperledger Fabric gateway…",300],["Querying CouchDB state database…",900],["Retrieving block metadata…",1500],["Validating zk-SNARK proof…",2100],["Cross-checking Raft consensus log…",2700],["Verification complete ✓",3300]];
+    steps.forEach(([txt,delay])=>setTimeout(()=>setLines(l=>[...l,{txt,id:Date.now()+delay}]),delay));
+    setTimeout(()=>{setLoading(false);setResult({valid:true,block:genBlock(),timestamp:new Date(Date.now()-Math.random()*3600000).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"medium"}),confirmations:Math.floor(200+Math.random()*800)});},3800);
+  };
+  return(
+    <div style={{minHeight:"100vh",paddingTop:52,background:"var(--bg)"}}>
+      <div style={{maxWidth:540,margin:"0 auto",padding:"28px 20px"}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{fontSize:30,marginBottom:8}}>🔍</div>
+          <h2 style={{fontFamily:"var(--font)",fontWeight:800,fontSize:24,color:"var(--text)",marginBottom:6}}>Public Audit Portal</h2>
+          <p style={{fontSize:13,color:"var(--text3)",lineHeight:1.7}}>Verify any vote on the public ledger.<br/>Vote choice stays hidden via zk-SNARK cryptography.</p>
+        </div>
+        <div className="card" style={{padding:20,marginBottom:14}}>
+          <label style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",display:"block",marginBottom:8,letterSpacing:1}}>VOTE RECEIPT HASH</label>
+          <textarea value={hash} onChange={e=>{setHash(e.target.value);setResult(null);setLines([]);}} placeholder="Paste your 0x... receipt hash here" rows={3}
+            style={{width:"100%",padding:"12px 14px",fontSize:11,lineHeight:1.7,resize:"none",wordBreak:"break-all"}}/>
+          <button className="btn-primary" style={{width:"100%",padding:13,fontSize:14,marginTop:10}} disabled={!hash||loading} onClick={verify}>
+            {loading?"⛓️ Querying blockchain nodes…":"VERIFY ON CHAIN →"}
+          </button>
+        </div>
+        {lines.length>0&&(
+          <div className="card" style={{padding:"14px 16px",marginBottom:14}}>
+            <p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:8}}>QUERY LOG</p>
+            {lines.map(l=><TerminalLine key={l.id} text={l.txt} color={l.txt.includes("✓")?"#4ade80":"var(--text2)"}/>)}
+            {loading&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}><div style={{width:7,height:7,borderRadius:"50%",background:"var(--accent)",animation:"blink 0.8s infinite"}}/><span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>processing…</span></div>}
+          </div>
+        )}
+        {result&&(
+          <div className="card" style={{padding:20,border:`1px solid ${result.valid?"#14532d":"#7f1d1d"}`,animation:"fadeUp 0.4s ease"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:result.valid?14:0}}>
+              <span style={{fontSize:26}}>{result.valid?"✅":"❌"}</span>
+              <div><p style={{fontFamily:"var(--font)",fontWeight:700,fontSize:15,color:result.valid?"var(--green)":"var(--red)"}}>{result.valid?"Vote Verified on Blockchain":"Hash Not Found"}</p>
+              <p style={{fontSize:12,color:"var(--text3)"}}>{result.valid?"Your vote was counted correctly":"Check the hash and try again"}</p></div>
+            </div>
+            {result.valid&&(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {[["Block ID",result.block,"var(--accent)"],["Timestamp",result.timestamp,"var(--text)"],["Confirmations",result.confirmations,"var(--green)"],["zk-SNARK Proof","VALID ✓","var(--green)"],["Ledger Status","IMMUTABLE · TAMPER-PROOF","var(--green)"]].map(([k,v,c])=>(
+                  <div key={k} style={{display:"flex",justifyContent:"space-between",paddingBottom:8,borderBottom:"1px solid var(--border)"}}>
+                    <span style={{fontSize:12,color:"var(--text3)"}}>{k}</span>
+                    <span style={{fontSize:13,fontWeight:700,color:c,fontFamily:k==="Block ID"?"var(--mono)":"inherit"}}>{v}</span>
+                  </div>
+                ))}
+                <p style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",fontStyle:"italic",marginTop:4}}>🎭 Vote choice permanently protected — cannot be revealed even by election officials.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NavBar({screen,onNavigate}){
+  const tabs=[{id:"home",label:"Home",icon:"🏠"},{id:"auth",label:"Vote",icon:"🗳️"},{id:"results",label:"Results",icon:"📊"},{id:"audit",label:"Audit",icon:"🔍"}];
+  return(
+    <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"rgba(3,7,15,0.97)",backdropFilter:"blur(16px)",borderTop:"1px solid var(--border)",display:"flex",height:56}}>
+      {tabs.map(t=>{
+        const active=screen===t.id||(screen==="vote"&&t.id==="auth")||(screen==="success"&&t.id==="auth");
+        return(
+          <button key={t.id} onClick={()=>onNavigate(t.id)}
+            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,background:"transparent",border:"none",cursor:"pointer",
+              color:active?"var(--accent)":"var(--text3)",transition:"color 0.2s",fontFamily:"var(--font)",fontSize:10,fontWeight:active?700:400}}>
+            <span style={{fontSize:16}}>{t.icon}</span>{t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function App(){
+  const [screen,setScreen]=useState("home");
+  const [voter,setVoter]=useState(null);
+  const [voteData,setVoteData]=useState(null);
+  const navigate=useCallback((s)=>{if(s==="auth"&&voteData){setScreen("success");return;}setScreen(s);},[voteData]);
+  const handleAuth=(v)=>{setVoter(v);setScreen("vote");};
+  const handleVoted=(candidate,hash,blockId)=>{setVoteData({candidate,hash,blockId});setScreen("success");};
+  const handleReset=()=>{setVoter(null);setVoteData(null);setScreen("home");};
+  return(
+    <div style={{paddingBottom:56,fontFamily:"var(--font)"}}>
+      <StatusBar voter={voter}/>
+      {screen==="home"&&<LandingScreen onNavigate={navigate}/>}
+      {screen==="auth"&&<AuthScreen onSuccess={handleAuth}/>}
+      {screen==="vote"&&<VoteScreen voter={voter} onVoted={handleVoted}/>}
+      {screen==="success"&&<SuccessScreen voter={voter} hash={voteData.hash} blockId={voteData.blockId} onAudit={()=>setScreen("audit")} onResults={()=>setScreen("results")} onReset={handleReset}/>}
+      {screen==="results"&&<ResultsScreen/>}
+      {screen==="audit"&&<AuditScreen defaultHash={voteData?.hash||""}/>}
+      <NavBar screen={screen} onNavigate={navigate}/>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
